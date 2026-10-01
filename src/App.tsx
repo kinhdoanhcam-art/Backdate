@@ -97,7 +97,7 @@ function LedgerCard({ bundle, compact = false }: { bundle: LedgerBundle; compact
   )
 }
 
-function CreateLedger({ account, onLoaded }: { account: Address; onLoaded: (author: string, title: string) => Promise<void> }) {
+function CreateLedger({ account, onLoaded }: { account: Address; onLoaded: (author: string, title: string) => Promise<unknown> }) {
   const [other, setOther] = useState('')
   const [label, setLabel] = useState('')
   const [title, setTitle] = useState('')
@@ -143,7 +143,9 @@ function CreateLedger({ account, onLoaded }: { account: Address; onLoaded: (auth
   )
 }
 
-function LedgerActions({ account, bundle, refresh }: { account: Address; bundle: LedgerBundle; refresh: () => Promise<void> }) {
+type BundleExpectation = (next: LedgerBundle) => boolean
+
+function LedgerActions({ account, bundle, refresh }: { account: Address; bundle: LedgerBundle; refresh: (expect?: BundleExpectation) => Promise<boolean> }) {
   const { ledger, entries } = bundle
   const isAuthor = same(account, ledger.author)
   const isOther = same(account, ledger.other_wallet)
@@ -162,12 +164,18 @@ function LedgerActions({ account, bundle, refresh }: { account: Address; bundle:
     try { return encodedWriteBytes('object_to_amendment', [ledger.author, ledger.title, note]) } catch { return 0 }
   }, [ledger.author, ledger.title, note])
 
-  async function run(key: string, action: () => Promise<WriteOutcome>, success: string) {
+  async function run(key: string, action: () => Promise<WriteOutcome>, success: string, expect: BundleExpectation) {
     setBusy(key); setNotice(null)
     try {
       const result = await action()
-      if (result.state === 'confirmed') await refresh()
-      setNotice(outcomeNotice(result, success))
+      if (result.state === 'confirmed') {
+        const reloaded = await refresh(expect)
+        setNotice(reloaded
+          ? outcomeNotice(result, success)
+          : { tone: 'warn', text: 'Transaction finalized, but the accepted-state replica is still catching up. Do not resend; use Load accepted state shortly.', hash: result.hash })
+      } else {
+        setNotice(outcomeNotice(result, success))
+      }
     } catch (error) { setNotice({ tone: 'bad', text: normalizeError(error) }) }
     finally { setBusy('') }
   }
@@ -183,7 +191,8 @@ function LedgerActions({ account, bundle, refresh }: { account: Address; bundle:
         <form onSubmit={(e) => {
           e.preventDefault(); const value = Number(quantity)
           if (!Number.isInteger(value) || value <= 0 || value > 1_000_000) return setNotice({ tone: 'bad', text: 'The quantity is out of range' })
-          void run('record', () => recordEntry(account, ledger.title, value), 'Entry recorded and accepted state reloaded.')
+          const previousCount = Number(ledger.entry_count)
+          void run('record', () => recordEntry(account, ledger.title, value), 'Entry recorded and accepted state reloaded.', (next) => Number(next.ledger.entry_count) > previousCount)
         }}>
           <h3>Record an entry</h3>
           <label>Quantity<input inputMode="numeric" value={quantity} onChange={(e) => setQuantity(e.target.value)} /></label>
@@ -198,7 +207,7 @@ function LedgerActions({ account, bundle, refresh }: { account: Address; bundle:
           if (pyLen(clean) > 600) return setNotice({ tone: 'bad', text: 'Text is too long' })
           if (hasReserved(clean)) return setNotice({ tone: 'bad', text: 'Text or label contains a reserved token' })
           if (amendmentBytes > 255) return setNotice({ tone: 'bad', text: 'Encoded calldata exceeds the 255-byte StudioNet safety limit.' })
-          void run('amend', () => amendRate(account, ledger.title, value, clean), 'Amendment finalized and accepted state reloaded.')
+          void run('amend', () => amendRate(account, ledger.title, value, clean), 'Amendment finalized and accepted state reloaded.', (next) => Boolean(next.ledger.reach))
         }}>
           <h3>Amend the rate</h3>
           <label>New rate<input inputMode="numeric" value={newRate} onChange={(e) => setNewRate(e.target.value)} /></label>
@@ -214,7 +223,7 @@ function LedgerActions({ account, bundle, refresh }: { account: Address; bundle:
           if (!clean) return setNotice({ tone: 'bad', text: 'Note is empty' })
           if (pyLen(clean) > 60) return setNotice({ tone: 'bad', text: 'Note is too long' })
           if (noteBytes > 255) return setNotice({ tone: 'bad', text: 'Encoded calldata exceeds the 255-byte StudioNet safety limit.' })
-          void run('object', () => objectToAmendment(account, ledger.author, ledger.title, clean), 'Objection recorded; reach and effective entry are unchanged.')
+          void run('object', () => objectToAmendment(account, ledger.author, ledger.title, clean), 'Objection recorded; reach and effective entry are unchanged.', (next) => Boolean(next.ledger.objection_note))
         }}>
           <h3>Record an objection</h3>
           <label>Objection note<textarea value={note} onChange={(e) => setNote(e.target.value)} /></label>
@@ -279,28 +288,38 @@ export default function App() {
     return getLedgerBundle(author, title)
   }, [])
 
-  const loadIntoWorkspace = useCallback(async (author: string, title: string) => {
+  const loadIntoWorkspace = useCallback(async (author: string, title: string, expect?: BundleExpectation): Promise<boolean> => {
     setBusy(true); setNotice(null)
     try {
       let found: LedgerBundle | null = null
+      let latest: LedgerBundle | null = null
       let lastError: unknown
       // A StudioNet leader receipt can arrive just before the accepted read
-      // replica exposes the new state. Retry reads only; never resend the write.
-      for (let attempt = 0; attempt < 8 && !found; attempt += 1) {
+      // replica exposes the new state. Retry until the expected state change is
+      // visible; merely finding the previous ledger snapshot is not enough.
+      // Reads are retried only. The write is never resent.
+      for (let attempt = 0; attempt < 20; attempt += 1) {
         try {
           found = await load(author, title)
+          if (found) latest = found
+          if (found && (!expect || expect(found))) break
+          found = null
         } catch (error) {
           lastError = error
           if (attempt === 0 && /Invalid wallet address|Title is empty/.test(normalizeError(error))) throw error
         }
-        if (!found && attempt < 7) {
+        if (attempt < 19) {
           await new Promise((resolve) => setTimeout(resolve, 1_500))
         }
       }
-      if (!found && lastError) throw lastError
-      if (!found) throw new Error('No ledger with this title')
-      setBundle(found); setTab('workspace')
-    } catch (error) { setNotice({ tone: 'bad', text: normalizeError(error) }) }
+      if (!found && !latest && lastError) throw lastError
+      if (!found && !latest) throw new Error('No ledger with this title')
+      setBundle(found || latest); setTab('workspace')
+      return Boolean(found)
+    } catch (error) {
+      setNotice({ tone: 'bad', text: normalizeError(error) })
+      return false
+    }
     finally { setBusy(false) }
   }, [load])
 
@@ -355,7 +374,7 @@ export default function App() {
           <>
             <section className="paper lookup"><div><p className="eyebrow">ACCEPTED STATE</p><h2>Open an existing ledger</h2></div><Finder onLoad={(a, t) => void loadIntoWorkspace(a, t)} /></section>
             {busy && <p className="loading">Reading accepted state…</p>}
-            {bundle && <><LedgerCard bundle={bundle} />{account && <LedgerActions account={account} bundle={bundle} refresh={() => loadIntoWorkspace(bundle.ledger.author, bundle.ledger.title)} />}</>}
+            {bundle && <><LedgerCard bundle={bundle} />{account && <LedgerActions account={account} bundle={bundle} refresh={(expect) => loadIntoWorkspace(bundle.ledger.author, bundle.ledger.title, expect)} />}</>}
             {!bundle && account && configured && <CreateLedger account={account} onLoaded={loadIntoWorkspace} />}
             {!account && <section className="empty-card large"><h2>Connect one wallet to begin</h2><p>One wallet is enough to create, record, amend, and explore. The named other wallet is only needed to record an objection.</p></section>}
           </>

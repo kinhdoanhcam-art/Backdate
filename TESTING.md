@@ -1,5 +1,9 @@
 # Testing
 
+## Accepted-state synchronization
+
+After each confirmed write, Backdate reloads read-only state until the specific expected change is visible: `entry_count` increases, `reach` is set, or `objection_note` is populated. A stale ledger snapshot is not treated as a successful refresh, and the write is never resent.
+
 ## ĐÃ TỰ CHẠY
 
 - `npm run build`: PASS, TypeScript project build plus Vite production bundle.
@@ -10,6 +14,7 @@
 - Ledger arithmetic: 2 tests, including bigint precision beyond `Number.MAX_SAFE_INTEGER`.
 - `npm run verify:source`: PASS, SHA-256 `8f1d187bae8025e146d5af90dfbd09f508667b2af5082be2294288918484fd35`.
 - `npm ls genlayer-js viem --all`: PASS, `genlayer-js@1.1.8` and one deduplicated `viem@2.56.8`.
+- Post-write refresh retries accepted-state reads for up to about 12 seconds; it never retries or resends the write transaction.
 
 ## CẦN NGƯỜI DÙNG CHẠY
 

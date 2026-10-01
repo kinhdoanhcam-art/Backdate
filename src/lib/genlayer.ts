@@ -103,7 +103,10 @@ async function acceptedRead(functionName: string, args: CalldataEncodable[] = []
     address: assertConfigured(),
     functionName,
     args,
-    transactionHashVariant: 'latest-final',
+    // StudioNet exposes accepted application state through the latest
+    // non-final snapshot. `latest-final` can remain one snapshot behind even
+    // after Explorer marks a transaction finalized.
+    transactionHashVariant: 'latest-nonfinal',
   } as never)
 }
 

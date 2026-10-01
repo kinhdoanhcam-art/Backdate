@@ -1,5 +1,11 @@
 # Changelog
 
+## Accepted-state synchronization fix
+
+- Read StudioNet's latest accepted snapshot instead of the lagging final snapshot.
+- After a confirmed write, keep reading until the expected entry, amendment, or objection change is visible.
+- Never resend a write while the accepted-state replica catches up.
+
 ## 1.0.0 — 2026-10-01
 
 - Built the Backdate Vite/React/TypeScript Project around the frozen ReachBack source.
@@ -8,3 +14,4 @@
 - Added ledger discovery, entry visualization, dual-total amendment preview, and two-ledger comparison.
 - Added 46 automated assertions, CI, source hash verification, runtime evidence template, and submission template.
 - Bound the production build to separately deployed Project contract `0x3866657F0A1b467a4868eD7C1Bc0eEC4af98314a`.
+- Added accepted-state read retries after confirmed writes to tolerate StudioNet replica lag without resending transactions.
