@@ -282,7 +282,22 @@ export default function App() {
   const loadIntoWorkspace = useCallback(async (author: string, title: string) => {
     setBusy(true); setNotice(null)
     try {
-      const found = await load(author, title)
+      let found: LedgerBundle | null = null
+      let lastError: unknown
+      // A StudioNet leader receipt can arrive just before the accepted read
+      // replica exposes the new state. Retry reads only; never resend the write.
+      for (let attempt = 0; attempt < 8 && !found; attempt += 1) {
+        try {
+          found = await load(author, title)
+        } catch (error) {
+          lastError = error
+          if (attempt === 0 && /Invalid wallet address|Title is empty/.test(normalizeError(error))) throw error
+        }
+        if (!found && attempt < 7) {
+          await new Promise((resolve) => setTimeout(resolve, 1_500))
+        }
+      }
+      if (!found && lastError) throw lastError
       if (!found) throw new Error('No ledger with this title')
       setBundle(found); setTab('workspace')
     } catch (error) { setNotice({ tone: 'bad', text: normalizeError(error) }) }
