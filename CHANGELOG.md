@@ -1,0 +1,10 @@
+# Changelog
+
+## 1.0.0 — 2026-10-01
+
+- Built the Backdate Vite/React/TypeScript Project around the frozen ReachBack source.
+- Added accepted-state preflight, MetaMask-only signing routes, same-origin RPC proxy, leader receipt confirmation, and recursive rollback extraction.
+- Added Python-compatible normalization, local Keccak ledger IDs, bigint-safe arithmetic, and encoded-calldata guard.
+- Added ledger discovery, entry visualization, dual-total amendment preview, and two-ledger comparison.
+- Added 46 automated assertions, CI, source hash verification, runtime evidence template, and submission template.
+- Bound the production build to separately deployed Project contract `0x3866657F0A1b467a4868eD7C1Bc0eEC4af98314a`.
