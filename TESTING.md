@@ -14,17 +14,20 @@ After each confirmed write, Backdate reloads read-only state until the specific 
 - Ledger arithmetic: 2 tests, including bigint precision beyond `Number.MAX_SAFE_INTEGER`.
 - `npm run verify:source`: PASS, SHA-256 `8f1d187bae8025e146d5af90dfbd09f508667b2af5082be2294288918484fd35`.
 - `npm ls genlayer-js viem --all`: PASS, `genlayer-js@1.1.8` and one deduplicated `viem@2.56.8`.
-- Post-write refresh retries accepted-state reads for up to about 12 seconds; it never retries or resends the write transaction.
+- Post-write refresh reads the latest accepted StudioNet snapshot and retries for up to about 30 seconds until the expected entry, amendment, or objection state change is visible. It never retries or resends the write transaction.
 
-## CẦN NGƯỜI DÙNG CHẠY
+## COMPLETED STUDIONET PROJECT RUN
 
-### Phiên Project — sau khi có địa chỉ deploy mới và URL Vercel
+- Deployment: `0x3866657F0A1b467a4868eD7C1Bc0eEC4af98314a`, transaction `0xa535a8d792860bc3b34036972800d32754cefaeb97fc1ea16f0061e41ae4386d`, `FINALIZED / SUCCESS`.
+- Author: `0x3065E31B1D993d7C0D59E6786844cBa56780B2d3`.
+- Other side: `0x5a52d040581A76e2C032542855D31480f2ea7097`.
+- `Project Retro`: three quantity-10 entries at base rate 100, amended to 120 with `The new rate applies to every order already placed.` Accepted result: `RETROACTIVE`, effective from entry 1, three recalculated amounts of 1200, total 3600, old total 3000.
+- `Project Forward`: the same three entries and new rate with `The new rate applies to orders placed after today.` Accepted result: `FORWARD_ONLY`, effective from entry 4, three unchanged amounts of 1000, total 3000.
+- Visual proof: `docs/screenshots/01-retroactive.png`, `02-forward-only.png`, and `03-compare.png`.
 
-1. **Deployment already complete:** `0x3866657F0A1b467a4868eD7C1Bc0eEC4af98314a`, tx `0xa535a8d792860bc3b34036972800d32754cefaeb97fc1ea16f0061e41ae4386d`, `FINALIZED / SUCCESS`.
-2. **Author `0x3065…B2d3` → core retroactive flow:** open one fresh ledger, record two quantity-10 entries at base 100, amend to 120 with clear retroactive wording; expect leader success, `Applies from entry 1`, total 2400 and two old amounts struck through; record write tx hashes.
-3. **Author `0x3065…B2d3` → core forward flow:** open a second fresh ledger, record the same two entries, amend to 120 with clear future-only wording; expect leader success, `Applies from entry 3`, total 2000 and no prior rows changed; record write tx hashes.
-4. **Other `0x5a52…7097` → objection:** discover the first ledger in **My ledgers**, record one objection; expect reach/effective entry unchanged; record tx hash.
-5. **Visual evidence:** capture exactly three images: retroactive ledger card, forward-only ledger card, and two-ledger Compare view.
+## OPTIONAL FOLLOW-UP
+
+The role-restricted objection method is covered by contract logic and UI guards but was not required for the completed core comparison. A reviewer may optionally switch to the declared other-side wallet and record one objection; this does not alter reach, effective entry, or totals.
 
 ## What this run does NOT prove
 

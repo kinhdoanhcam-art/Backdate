@@ -1,5 +1,12 @@
 # Changelog
 
+## Final project evidence and branding
+
+- Added the Backdate PNG logo and integrated it into the header and favicon.
+- Added accepted-state screenshots for retroactive, forward-only, and side-by-side comparison outcomes.
+- Updated runtime documentation to the completed three-entry StudioNet run.
+- Added a complete copy-paste Project submission form and reusable Project submission rules.
+
 ## Accepted-state synchronization fix
 
 - Read StudioNet's latest accepted snapshot instead of the lagging final snapshot.

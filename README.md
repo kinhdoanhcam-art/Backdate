@@ -2,6 +2,8 @@ Backdate makes the starting index of a rate amendment visible: the same recorded
 
 # Backdate
 
+![Backdate logo](public/backdate-logo.png)
+
 Backdate is the Project/dApp for the frozen ReachBack GenLayer Intelligent Contract. A ledger author records quantities at a base rate, submits one natural-language amendment, and GenLayer classifies whether the new rate is `RETROACTIVE`, `FORWARD_ONLY`, or unresolved. Deterministic contract code converts that result into a permanent `effective_from` index.
 
 The contract does not hold, transfer, or claim money. All ledger amounts are numbers only.
@@ -21,7 +23,7 @@ This Project address is separate from the earlier ReachBack Intelligent Contract
 - current and old amounts on every entry, with recalculated old amounts struck through;
 - the accepted total and the total at the old rate;
 - an amendment preview showing both possible totals before submission;
-- two-ledger comparison mode for the strongest `2400` versus `2000` proof;
+- two-ledger comparison mode for the accepted `3600` versus `3000` proof;
 - accepted-state preflight, exact predictable-revert messages, leader-receipt confirmation, and delayed-confirmation handling;
 - local Python-compatible title normalization and Keccak-256 ledger IDs.
 
@@ -51,12 +53,25 @@ The frozen source is [`contracts/ReachBack.py`](contracts/ReachBack.py). Its nor
 The steward does not need shared seeded state.
 
 1. Connect MetaMask and open a fresh ledger with a different `other_wallet`.
-2. Record two entries with quantity `10` at base rate `100`.
+2. Record three entries with quantity `10` at base rate `100`.
 3. Submit one amendment to rate `120` using text that clearly applies either to earlier entries or only future entries.
 4. Wait for the leader receipt. Read the scope line, entry table, and accepted total.
 5. Optionally repeat with the opposite wording and compare the two ledgers side by side.
 
 One wallet is enough for the core flow. The named second wallet is required only to record an objection.
+
+## Accepted runtime proof
+
+The completed StudioNet run used the same author, other-side wallet, base rate, quantities, and new rate in both ledgers:
+
+- `Project Retro`: `RETROACTIVE`, effective from entry 1, accepted total `3600` (old total `3000`).
+- `Project Forward`: `FORWARD_ONLY`, effective from entry 4, accepted total remains `3000`.
+
+![Retroactive accepted state](docs/screenshots/01-retroactive.png)
+
+![Forward-only accepted state](docs/screenshots/02-forward-only.png)
+
+![Accepted-state comparison](docs/screenshots/03-compare.png)
 
 ## Network and transaction safety
 

@@ -352,7 +352,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <a className="brand" href="#top"><span className="brand-mark">↶</span><span><b>Backdate</b><small>ReachBack ledger explorer</small></span></a>
+        <a className="brand" href="#top"><img className="brand-mark" src="/backdate-logo.png" alt="Backdate logo" /><span><b>Backdate</b><small>ReachBack ledger explorer</small></span></a>
         <nav>
           <button className={tab === 'workspace' ? 'active' : ''} onClick={() => setTab('workspace')}>Workspace</button>
           <button className={tab === 'discover' ? 'active' : ''} onClick={() => void discover()} disabled={!account}>My ledgers</button>
